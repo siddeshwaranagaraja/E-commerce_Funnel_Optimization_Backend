@@ -1,0 +1,1 @@
+FUNNEL_STAGES = ["browse", "cart", "checkout", "purchase"]
