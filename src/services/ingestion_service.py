@@ -2,6 +2,9 @@ import pandas as pd
 from src.data_processing.loader import get_dataframe
 from src.data_processing.cleaner import clean_dataframe
 from src.data_processing.transformer import transform_dataframe
+from src.db.session import SessionLocal
+from src.db.models import UserEvent, FunnelSnapshot
+from datetime import datetime
 
 def load_data(file_path: str = "data/raw/user_events.csv") -> pd.DataFrame:
     """Load raw data from CSV."""
@@ -19,10 +22,22 @@ def save_data(df: pd.DataFrame, output_path: str = "data/processed/funnel_data.c
     """Save processed data to CSV."""
     df.to_csv(output_path, index=False)
 
+def save_to_db_events(df: pd.DataFrame) -> None:
+    """Save cleaned events to database."""
+    # placeholder: bulk insert events into UserEvent table
+    pass
+
+def save_to_db_stages(df: pd.DataFrame) -> None:
+    """Save processed stage data to database."""
+    # placeholder: aggregate and save funnel snapshots
+    pass
+
 def run_ingestion_pipeline(file_path: str = "data/raw/user_events.csv") -> pd.DataFrame:
     """Orchestrate the full ingestion pipeline."""
     df = load_data(file_path)
     df = clean_data(df)
     df = transform_data(df)
     save_data(df)
+    save_to_db_events(df)
+    save_to_db_stages(df)
     return df
