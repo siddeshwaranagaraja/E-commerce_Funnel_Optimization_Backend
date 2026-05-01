@@ -2,6 +2,7 @@ import pandas as pd
 from src.data_processing.loader import get_dataframe
 from src.data_processing.cleaner import clean_dataframe
 from src.data_processing.transformer import transform_dataframe
+from src.analytics.funnel_metrics import compute_funnel_aggregates
 from src.db.session import SessionLocal
 from src.db.models import UserEvent, FunnelSnapshot
 from datetime import datetime
@@ -32,6 +33,12 @@ def save_to_db_stages(df: pd.DataFrame) -> None:
     # placeholder: aggregate and save funnel snapshots
     pass
 
+def compute_and_store_aggregates(df: pd.DataFrame) -> dict:
+    """Compute funnel-ready aggregates after preprocessing."""
+    aggregates = compute_funnel_aggregates(df)
+    # placeholder: persist aggregates if needed
+    return aggregates
+
 def run_ingestion_pipeline(file_path: str = "data/raw/user_events.csv") -> pd.DataFrame:
     """Orchestrate the full ingestion pipeline."""
     df = load_data(file_path)
@@ -40,4 +47,5 @@ def run_ingestion_pipeline(file_path: str = "data/raw/user_events.csv") -> pd.Da
     save_data(df)
     save_to_db_events(df)
     save_to_db_stages(df)
+    compute_and_store_aggregates(df)
     return df
