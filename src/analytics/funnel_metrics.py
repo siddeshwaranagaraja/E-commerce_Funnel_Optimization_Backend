@@ -1,5 +1,6 @@
 import pandas as pd
 from typing import Dict, List
+from datetime import datetime
 from utils.constants import FUNNEL_STAGES
 from utils.helpers import safe_divide
 
@@ -45,3 +46,28 @@ def compute_funnel_aggregates(df: pd.DataFrame) -> Dict:
         "step_conversions": get_step_conversion_rates(df),
         "overall_conversion": get_overall_conversion(df),
     }
+
+def calculate_daily_aggregates(df: pd.DataFrame) -> List[Dict]:
+    """Calculate daily funnel stage metrics for snapshot storage."""
+    daily_data = []
+    user_counts = get_stage_user_counts(df)
+    session_counts = get_stage_session_counts(df)
+    step_rates = get_step_conversion_rates(df)
+    
+    for i, stage in enumerate(FUNNEL_STAGES):
+        dropoff_rate = 0.0
+        if i > 0:
+            prev_stage = FUNNEL_STAGES[i - 1]
+            prev_users = user_counts.get(prev_stage, 0)
+            curr_users = user_counts.get(stage, 0)
+            dropoff_rate = safe_divide(prev_users - curr_users, prev_users)
+        
+        daily_data.append({
+            "stage_name": stage,
+            "users_count": user_counts.get(stage, 0),
+            "sessions_count": session_counts.get(stage, 0),
+            "conversion_rate": step_rates.get(f"{FUNNEL_STAGES[i-1] if i > 0 else stage}_to_{stage}", 0.0),
+            "dropoff_rate": dropoff_rate,
+        })
+    
+    return daily_data
