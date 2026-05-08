@@ -13,9 +13,57 @@ def calculate_behavior_metrics(df: pd.DataFrame) -> dict:
     return compute_behavior_aggregates(df)
 
 def store_behavior_insights(metrics: dict) -> None:
-    """Persist behavior insights to the database."""
-    # placeholder: store cart abandonment, checkout abandonment, and segment patterns
-    pass
+    """Persist summarized behavior findings into the database."""
+    db = SessionLocal()
+    try:
+        # Store cart abandonment insight
+        cart_data = metrics.get("cart_abandonment", {})
+        if cart_data:
+            db.add(BehaviorInsight(
+                insight_type="cart_abandonment",
+                description=f"Cart abandonment rate: {cart_data.get('abandonment_rate', 0)}% "
+                            f"({cart_data.get('abandoned_users', 0)} of {cart_data.get('cart_users', 0)} users)",
+                metadata={
+                    "cart_users": cart_data.get("cart_users"),
+                    "abandoned_users": cart_data.get("abandoned_users"),
+                    "abandonment_rate": cart_data.get("abandonment_rate"),
+                    "avg_sessions_before_abandon": cart_data.get("avg_sessions_before_abandon"),
+                },
+                created_at=datetime.utcnow()
+            ))
+        
+        # Store checkout abandonment insight
+        checkout_data = metrics.get("checkout_abandonment", {})
+        if checkout_data:
+            db.add(BehaviorInsight(
+                insight_type="checkout_abandonment",
+                description=f"Checkout abandonment rate: {checkout_data.get('abandonment_rate', 0)}% "
+                            f"({checkout_data.get('abandoned_users', 0)} of {checkout_data.get('checkout_users', 0)} users)",
+                metadata={
+                    "checkout_users": checkout_data.get("checkout_users"),
+                    "abandoned_users": checkout_data.get("abandoned_users"),
+                    "abandonment_rate": checkout_data.get("abandonment_rate"),
+                    "device_breakdown": checkout_data.get("device_breakdown"),
+                },
+                created_at=datetime.utcnow()
+            ))
+        
+        # Store repeated browse insight
+        repeated_browse = metrics.get("repeated_browse", [])
+        if repeated_browse:
+            db.add(BehaviorInsight(
+                insight_type="repeated_browse",
+                description=f"{len(repeated_browse)} users are stuck browsing without progressing to cart.",
+                metadata={"repeated_browse_users": repeated_browse},
+                created_at=datetime.utcnow()
+            ))
+        
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
 
 def run_behavior_pipeline(file_path: str = "data/processed/funnel_data.csv") -> dict:
     """Orchestrate behavior analytics calculation and storage."""
