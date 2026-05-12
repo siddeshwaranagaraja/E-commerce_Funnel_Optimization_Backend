@@ -4,6 +4,41 @@ from datetime import datetime, timedelta
 from utils.constants import FUNNEL_STAGES
 from utils.helpers import safe_divide
 
+def aggregate_snapshots_to_daily_trend(snapshots: List[Dict]) -> List[Dict]:
+    """Aggregate FunnelSnapshot records into daily trend data."""
+    if not snapshots:
+        return []
+    
+    # Group snapshots by date
+    snapshot_df = pd.DataFrame(snapshots)
+    if snapshot_df.empty:
+        return []
+    
+    snapshot_df['date'] = pd.to_datetime(snapshot_df['date_key']).dt.date
+    daily_trend = []
+    
+    for date in sorted(snapshot_df['date'].unique()):
+        daily_snapshots = snapshot_df[snapshot_df['date'] == date]
+        daily_data = {"date": str(date)}
+        
+        # Aggregate metrics by stage
+        for stage in FUNNEL_STAGES:
+            stage_data = daily_snapshots[daily_snapshots['stage_name'] == stage]
+            if not stage_data.empty:
+                daily_data[f"{stage}_users"] = int(stage_data['users_count'].sum())
+                daily_data[f"{stage}_sessions"] = int(stage_data['sessions_count'].sum())
+                daily_data[f"{stage}_conversion_rate"] = round(stage_data['conversion_rate'].mean(), 2)
+        
+        # Calculate overall conversion
+        browse_users = daily_data.get('browse_users', 0)
+        purchase_users = daily_data.get('purchase_users', 0)
+        overall_conversion = safe_divide(purchase_users, browse_users) * 100 if browse_users > 0 else 0
+        daily_data["overall_conversion_rate"] = round(overall_conversion, 2)
+        
+        daily_trend.append(daily_data)
+    
+    return daily_trend
+
 def calculate_daily_conversion_trend(df: pd.DataFrame, days: int = 30) -> List[Dict]:
     """Calculate daily conversion rates across funnel stages."""
     if 'timestamp' not in df.columns:
@@ -98,4 +133,5 @@ def compute_trend_aggregates(df: pd.DataFrame) -> Dict:
         "daily_conversion_trend": calculate_daily_conversion_trend(df),
         "daily_dropoff_trend": calculate_daily_dropoff_trend(df),
         "daily_segment_trend": calculate_daily_segment_trend(df),
+    }
     }
