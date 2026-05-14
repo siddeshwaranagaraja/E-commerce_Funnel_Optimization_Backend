@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 from src.insights.rules_engine import RulesEngine
 from src.services.funnel_service import run_funnel_pipeline
 from src.services.dropoff_service import run_dropoff_pipeline
@@ -17,7 +17,7 @@ def combine_analytics_inputs(funnel_metrics: Dict, dropoff_metrics: Dict, behavi
         "trends_data": trend_metrics or {},
     }
 
-def generate_insights(analytics_inputs: Dict) -> list:
+def generate_insights(analytics_inputs: Dict) -> List[Dict]:
     """Run rules engine on combined analytics inputs to generate insights."""
     insights = RulesEngine.run_all_rules(
         funnel_data=analytics_inputs.get("funnel_data", {}),
@@ -27,8 +27,29 @@ def generate_insights(analytics_inputs: Dict) -> list:
     )
     return insights
 
-def store_insights(insights: list) -> None:
-    """Persist generated insights to database."""
+def assemble_insight_response(insights: List[Dict]) -> Dict:
+    """Assemble final structured response with insight summary and detail."""
+    triggered = [i for i in insights if i.get("triggered")]
+    
+    severity_counts = {"critical": 0, "high": 0, "medium": 0}
+    for insight in triggered:
+        sev = insight.get("severity", "medium")
+        if sev in severity_counts:
+            severity_counts[sev] += 1
+    
+    return {
+        "summary": {
+            "total_insights": len(triggered),
+            "critical_count": severity_counts["critical"],
+            "high_count": severity_counts["high"],
+            "medium_count": severity_counts["medium"],
+            "generated_at": datetime.utcnow().isoformat(),
+        },
+        "insights": triggered,
+    }
+
+def store_insights(insights: List[Dict]) -> None:
+    """Persist generated insights to BehaviorInsight table."""
     db = SessionLocal()
     try:
         for insight in insights:
@@ -40,6 +61,8 @@ def store_insights(insights: list) -> None:
                         "severity": insight.get("severity"),
                         "value": insight.get("value"),
                         "recommendation": insight.get("recommendation"),
+                        "context": insight.get("context", {}),
+                        "generated_at": insight.get("generated_at"),
                     },
                     created_at=datetime.utcnow()
                 ))
@@ -72,8 +95,5 @@ def run_insight_pipeline(file_path: str = "data/processed/funnel_data.csv") -> D
     # Store insights
     store_insights(insights)
     
-    return {
-        "insights": insights,
-        "total_triggered": len([i for i in insights if i.get("triggered")]),
-        "critical_count": len([i for i in insights if i.get("severity") == "critical"]),
-    }
+    # Assemble and return structured response
+    return assemble_insight_response(insights)
